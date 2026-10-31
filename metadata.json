@@ -1,0 +1,6 @@
+{
+  "name": "Distill",
+  "description": "Paste long emails or upload PDFs and notices to extract actionable tasks, generate a crisp 3-bullet summary, and export .ics calendar invites.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

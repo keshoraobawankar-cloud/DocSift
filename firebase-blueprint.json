@@ -1,0 +1,343 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user profile and workspace preferences.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the user."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Display name of the user."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "Verified email address of the user."
+        },
+        "countryCode": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 2,
+          "pattern": "^[A-Z]{2}$",
+          "description": "ISO 3166-1 alpha-2 country code selected by the user."
+        },
+        "countryName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Full country display name."
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Resolved primary IANA timezone for the selected country."
+        },
+        "defaultSummaryPoints": {
+          "type": "integer",
+          "description": "User's preferred default number of summary points (1 to 10)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the profile was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the profile was last updated."
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "email",
+        "countryCode",
+        "countryName",
+        "timezone",
+        "defaultSummaryPoints",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ExtractionRecordDoc": {
+      "title": "ExtractionRecordDoc",
+      "description": "Extracted email/document/voice-note evaluation, tone & urgency classification, multi-language summary, Kanban tasks, calendar events, and attachment metadata owned by a user.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the user who owns this extraction."
+        },
+        "createdAtIso": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 40,
+          "description": "ISO timestamp string for UI display."
+        },
+        "countryName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Country name active when extracted."
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "IANA timezone used for calendar event generation."
+        },
+        "sourceMode": {
+          "type": "string",
+          "enum": ["paste", "upload", "voice"],
+          "maxLength": 20,
+          "description": "Whether the source was pasted text, uploaded file, or voice note."
+        },
+        "sourceFileName": {
+          "type": "string",
+          "maxLength": 240,
+          "description": "Primary uploaded or recorded filename, or empty string."
+        },
+        "sourcePreview": {
+          "type": "string",
+          "maxLength": 600,
+          "description": "Short preview snippet of the raw source."
+        },
+        "sourceText": {
+          "type": "string",
+          "maxLength": 30000,
+          "description": "Full readable source text, OCR transcript, or speech-to-text transcript for Deep reading mode."
+        },
+        "detectedLanguage": {
+          "type": "string",
+          "maxLength": 60,
+          "description": "Auto-detected source language (e.g., English, Spanish, Hindi, German)."
+        },
+        "outputLanguage": {
+          "type": "string",
+          "maxLength": 60,
+          "description": "Active output/translation language of the summary and tasks."
+        },
+        "documentTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "description": "Extracted title of the email, document, or voice note."
+        },
+        "documentType": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Category label of the source document."
+        },
+        "senderOrSource": {
+          "type": "string",
+          "maxLength": 240,
+          "description": "Sender or organization identified."
+        },
+        "estimatedReadMinutesSaved": {
+          "type": "integer",
+          "description": "Estimated reading minutes saved (1 to 1000)."
+        },
+        "classification": {
+          "type": "string",
+          "enum": [
+            "Action Required",
+            "Promotional / Marketing",
+            "Newsletter / Digest",
+            "Transactional / Receipt",
+            "Informational / FYI",
+            "Suspicious / Unsolicited"
+          ],
+          "maxLength": 60,
+          "description": "System-generated mail classification."
+        },
+        "urgencyLevel": {
+          "type": "string",
+          "enum": ["Urgent", "Action Required", "Informational"],
+          "maxLength": 40,
+          "description": "System-generated urgency classification."
+        },
+        "detectedTone": {
+          "type": "string",
+          "maxLength": 60,
+          "description": "System-generated tone/sentiment classification (e.g., Formal, Strict, Friendly)."
+        },
+        "requiresUserAction": {
+          "type": "boolean",
+          "description": "Whether genuine recipient action is required."
+        },
+        "recommendedDisposition": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Short recommended action or disposition."
+        },
+        "evaluationRationale": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Explanation for the mail evaluation."
+        },
+        "detectedSignals": {
+          "type": "array",
+          "description": "Bounded list (max 10) of detected evaluation signals."
+        },
+        "evaluationBases": {
+          "type": "array",
+          "description": "Bounded list (max 10) of evaluation criteria chosen by the user."
+        },
+        "criteriaBreakdown": {
+          "type": "array",
+          "description": "Bounded list (max 10) of per-criterion evaluation findings."
+        },
+        "summaryBullets": {
+          "type": "array",
+          "description": "Bounded list (1 to 10) of summary points requested by the user."
+        },
+        "actionItems": {
+          "type": "array",
+          "description": "Bounded list (max 25) of extracted or manual tasks with Kanban status."
+        },
+        "calendarEvents": {
+          "type": "array",
+          "description": "Bounded list (max 20) of extracted calendar events."
+        },
+        "attachmentsMeta": {
+          "type": "array",
+          "description": "Bounded list (max 20) of lightweight attachment metadata."
+        },
+        "workspaceNotes": {
+          "type": "string",
+          "maxLength": 15000,
+          "description": "User-editable Markdown notes and tweaks associated with this extraction."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Immutable server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": [
+        "ownerId",
+        "createdAtIso",
+        "countryName",
+        "timezone",
+        "sourceMode",
+        "sourceFileName",
+        "sourcePreview",
+        "documentTitle",
+        "documentType",
+        "senderOrSource",
+        "estimatedReadMinutesSaved",
+        "classification",
+        "requiresUserAction",
+        "recommendedDisposition",
+        "evaluationRationale",
+        "detectedSignals",
+        "evaluationBases",
+        "criteriaBreakdown",
+        "summaryBullets",
+        "actionItems",
+        "calendarEvents",
+        "attachmentsMeta",
+        "workspaceNotes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "EmailDraftDoc": {
+      "title": "EmailDraftDoc",
+      "description": "User-authored or AI-assisted email draft stored in the workspace.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the user who owns this email draft."
+        },
+        "to": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Recipient email or name."
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "description": "Email subject line."
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 15000,
+          "description": "Email message body."
+        },
+        "formatType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "Selected email format style."
+        },
+        "updatedAtIso": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 40,
+          "description": "ISO string when the draft was last saved."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Immutable server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": [
+        "ownerId",
+        "to",
+        "subject",
+        "body",
+        "formatType",
+        "updatedAtIso",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profile and preferences strictly readable/writable only by the owner."
+    },
+    "/extractions/{extractionId}": {
+      "schema": { "$ref": "#/entities/ExtractionRecordDoc" },
+      "description": "User-owned mail evaluation and extraction records isolated by ownerId."
+    },
+    "/drafts/{draftId}": {
+      "schema": { "$ref": "#/entities/EmailDraftDoc" },
+      "description": "User-owned email drafts isolated by ownerId."
+    }
+  }
+}

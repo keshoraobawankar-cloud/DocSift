@@ -1,0 +1,390 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entity Blueprint: UserProfile (/users/{userId})
+    function isValidUserProfile(data) {
+      return isVerifiedUser() &&
+      data is map &&
+      data.keys().hasAll([
+        'uid',
+        'displayName',
+        'email',
+        'countryCode',
+        'countryName',
+        'timezone',
+        'defaultSummaryPoints',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid',
+        'displayName',
+        'email',
+        'countryCode',
+        'countryName',
+        'timezone',
+        'defaultSummaryPoints',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.uid == request.auth.uid &&
+      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120 &&
+      data.email is string && data.email.size() >= 3 && data.email.size() <= 254 &&
+      data.countryCode is string && data.countryCode.size() == 2 && data.countryCode.matches('^[A-Z]{2}$') &&
+      data.countryName is string && data.countryName.size() >= 2 && data.countryName.size() <= 120 &&
+      data.timezone is string && data.timezone.size() >= 1 && data.timezone.size() <= 100 &&
+      data.defaultSummaryPoints is int && data.defaultSummaryPoints >= 1 && data.defaultSummaryPoints <= 10 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Entity Blueprint: ExtractionRecordDoc (/extractions/{extractionId})
+    function isValidExtraction(data) {
+      return isVerifiedUser() &&
+      data is map &&
+      data.keys().hasAll([
+        'ownerId',
+        'createdAtIso',
+        'countryName',
+        'timezone',
+        'sourceMode',
+        'sourceFileName',
+        'sourcePreview',
+        'documentTitle',
+        'documentType',
+        'senderOrSource',
+        'estimatedReadMinutesSaved',
+        'classification',
+        'requiresUserAction',
+        'recommendedDisposition',
+        'evaluationRationale',
+        'detectedSignals',
+        'evaluationBases',
+        'criteriaBreakdown',
+        'summaryBullets',
+        'actionItems',
+        'calendarEvents',
+        'attachmentsMeta',
+        'workspaceNotes',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId',
+        'createdAtIso',
+        'countryName',
+        'timezone',
+        'sourceMode',
+        'sourceFileName',
+        'sourcePreview',
+        'sourceText',
+        'detectedLanguage',
+        'outputLanguage',
+        'documentTitle',
+        'documentType',
+        'senderOrSource',
+        'estimatedReadMinutesSaved',
+        'classification',
+        'urgencyLevel',
+        'detectedTone',
+        'requiresUserAction',
+        'recommendedDisposition',
+        'evaluationRationale',
+        'detectedSignals',
+        'evaluationBases',
+        'criteriaBreakdown',
+        'summaryBullets',
+        'actionItems',
+        'calendarEvents',
+        'attachmentsMeta',
+        'workspaceNotes',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.ownerId == request.auth.uid &&
+      data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.createdAtIso is string && data.createdAtIso.size() >= 10 && data.createdAtIso.size() <= 40 &&
+      data.countryName is string && data.countryName.size() >= 1 && data.countryName.size() <= 120 &&
+      data.timezone is string && data.timezone.size() >= 1 && data.timezone.size() <= 100 &&
+      data.sourceMode is string && data.sourceMode.size() <= 20 && (data.sourceMode == 'paste' || data.sourceMode == 'upload' || data.sourceMode == 'voice') &&
+      data.sourceFileName is string && data.sourceFileName.size() <= 240 &&
+      data.sourcePreview is string && data.sourcePreview.size() <= 600 &&
+      (!('sourceText' in data) || (data.sourceText is string && data.sourceText.size() <= 30000)) &&
+      (!('detectedLanguage' in data) || (data.detectedLanguage is string && data.detectedLanguage.size() <= 60)) &&
+      (!('outputLanguage' in data) || (data.outputLanguage is string && data.outputLanguage.size() <= 60)) &&
+      data.documentTitle is string && data.documentTitle.size() >= 1 && data.documentTitle.size() <= 300 &&
+      data.documentType is string && data.documentType.size() <= 100 &&
+      data.senderOrSource is string && data.senderOrSource.size() <= 240 &&
+      data.estimatedReadMinutesSaved is int && data.estimatedReadMinutesSaved >= 1 && data.estimatedReadMinutesSaved <= 1000 &&
+      data.classification is string && data.classification.size() <= 60 && (
+        data.classification == 'Action Required' ||
+        data.classification == 'Promotional / Marketing' ||
+        data.classification == 'Newsletter / Digest' ||
+        data.classification == 'Transactional / Receipt' ||
+        data.classification == 'Informational / FYI' ||
+        data.classification == 'Suspicious / Unsolicited'
+      ) &&
+      (!('urgencyLevel' in data) || (
+        data.urgencyLevel is string && data.urgencyLevel.size() <= 40 && (
+          data.urgencyLevel == 'Urgent' ||
+          data.urgencyLevel == 'Action Required' ||
+          data.urgencyLevel == 'Informational'
+        )
+      )) &&
+      (!('detectedTone' in data) || (data.detectedTone is string && data.detectedTone.size() <= 60)) &&
+      data.requiresUserAction is bool &&
+      data.recommendedDisposition is string && data.recommendedDisposition.size() <= 200 &&
+      data.evaluationRationale is string && data.evaluationRationale.size() <= 1000 &&
+      data.detectedSignals is list && data.detectedSignals.size() <= 10 &&
+      (data.detectedSignals.size() == 0 || (data.detectedSignals[0] is string && data.detectedSignals[0].size() <= 200)) &&
+      data.evaluationBases is list && data.evaluationBases.size() <= 10 &&
+      (data.evaluationBases.size() == 0 || (data.evaluationBases[0] is string && data.evaluationBases[0].size() <= 120)) &&
+      data.criteriaBreakdown is list && data.criteriaBreakdown.size() <= 10 &&
+      (data.criteriaBreakdown.size() == 0 || (
+        data.criteriaBreakdown[0] is map &&
+        data.criteriaBreakdown[0].keys().hasAll(['criterion', 'finding', 'rating']) &&
+        data.criteriaBreakdown[0].keys().hasOnly(['criterion', 'finding', 'rating']) &&
+        data.criteriaBreakdown[0].criterion is string && data.criteriaBreakdown[0].criterion.size() <= 120 &&
+        data.criteriaBreakdown[0].finding is string && data.criteriaBreakdown[0].finding.size() <= 600 &&
+        data.criteriaBreakdown[0].rating is string && data.criteriaBreakdown[0].rating.size() <= 80
+      )) &&
+      data.summaryBullets is list && data.summaryBullets.size() >= 1 && data.summaryBullets.size() <= 10 &&
+      data.summaryBullets[0] is map &&
+      data.summaryBullets[0].keys().hasAll(['lead', 'detail']) &&
+      data.summaryBullets[0].keys().hasOnly(['lead', 'detail']) &&
+      data.summaryBullets[0].lead is string && data.summaryBullets[0].lead.size() <= 160 &&
+      data.summaryBullets[0].detail is string && data.summaryBullets[0].detail.size() <= 800 &&
+      data.actionItems is list && data.actionItems.size() <= 25 &&
+      (data.actionItems.size() == 0 || (
+        data.actionItems[0] is map &&
+        data.actionItems[0].keys().hasAll(['id', 'title', 'owner', 'dueDateText', 'dueDateIso', 'priority', 'sourceSnippet', 'completed']) &&
+        data.actionItems[0].keys().hasOnly(['id', 'title', 'owner', 'dueDateText', 'dueDateIso', 'priority', 'sourceSnippet', 'completed', 'status']) &&
+        data.actionItems[0].id is string && data.actionItems[0].id.size() <= 128 &&
+        data.actionItems[0].title is string && data.actionItems[0].title.size() <= 400 &&
+        data.actionItems[0].owner is string && data.actionItems[0].owner.size() <= 120 &&
+        data.actionItems[0].dueDateText is string && data.actionItems[0].dueDateText.size() <= 120 &&
+        data.actionItems[0].dueDateIso is string && data.actionItems[0].dueDateIso.size() <= 40 &&
+        data.actionItems[0].priority is string && data.actionItems[0].priority.size() <= 20 &&
+        data.actionItems[0].sourceSnippet is string && data.actionItems[0].sourceSnippet.size() <= 500 &&
+        data.actionItems[0].completed is bool &&
+        (!('status' in data.actionItems[0]) || (
+          data.actionItems[0].status is string && data.actionItems[0].status.size() <= 20 && (
+            data.actionItems[0].status == 'todo' ||
+            data.actionItems[0].status == 'in_progress' ||
+            data.actionItems[0].status == 'done'
+          )
+        ))
+      )) &&
+      data.calendarEvents is list && data.calendarEvents.size() <= 20 &&
+      (data.calendarEvents.size() == 0 || (
+        data.calendarEvents[0] is map &&
+        data.calendarEvents[0].keys().hasAll(['id', 'title', 'eventType', 'startIso', 'endIso', 'isAllDay', 'location', 'organizer', 'attendees', 'description', 'statusNote']) &&
+        data.calendarEvents[0].keys().hasOnly(['id', 'title', 'eventType', 'startIso', 'endIso', 'isAllDay', 'location', 'organizer', 'attendees', 'description', 'statusNote']) &&
+        data.calendarEvents[0].id is string && data.calendarEvents[0].id.size() <= 128 &&
+        data.calendarEvents[0].title is string && data.calendarEvents[0].title.size() <= 300 &&
+        data.calendarEvents[0].eventType is string && data.calendarEvents[0].eventType.size() <= 60 &&
+        data.calendarEvents[0].startIso is string && data.calendarEvents[0].startIso.size() <= 40 &&
+        data.calendarEvents[0].endIso is string && data.calendarEvents[0].endIso.size() <= 40 &&
+        data.calendarEvents[0].isAllDay is bool &&
+        data.calendarEvents[0].location is string && data.calendarEvents[0].location.size() <= 300 &&
+        data.calendarEvents[0].organizer is string && data.calendarEvents[0].organizer.size() <= 200 &&
+        data.calendarEvents[0].attendees is list && data.calendarEvents[0].attendees.size() <= 30 &&
+        (data.calendarEvents[0].attendees.size() == 0 || (data.calendarEvents[0].attendees[0] is string && data.calendarEvents[0].attendees[0].size() <= 200)) &&
+        data.calendarEvents[0].description is string && data.calendarEvents[0].description.size() <= 1000 &&
+        data.calendarEvents[0].statusNote is string && data.calendarEvents[0].statusNote.size() <= 200
+      )) &&
+      data.attachmentsMeta is list && data.attachmentsMeta.size() <= 20 &&
+      (data.attachmentsMeta.size() == 0 || (
+        data.attachmentsMeta[0] is map &&
+        data.attachmentsMeta[0].keys().hasAll(['id', 'fileName', 'mimeType', 'sizeBytes', 'origin', 'contextNote']) &&
+        data.attachmentsMeta[0].keys().hasOnly(['id', 'fileName', 'mimeType', 'sizeBytes', 'origin', 'contextNote']) &&
+        data.attachmentsMeta[0].id is string && data.attachmentsMeta[0].id.size() <= 128 &&
+        data.attachmentsMeta[0].fileName is string && data.attachmentsMeta[0].fileName.size() <= 240 &&
+        data.attachmentsMeta[0].mimeType is string && data.attachmentsMeta[0].mimeType.size() <= 120 &&
+        data.attachmentsMeta[0].sizeBytes is int && data.attachmentsMeta[0].sizeBytes >= 0 && data.attachmentsMeta[0].sizeBytes <= 50000000 &&
+        data.attachmentsMeta[0].origin is string && data.attachmentsMeta[0].origin.size() <= 30 &&
+        data.attachmentsMeta[0].contextNote is string && data.attachmentsMeta[0].contextNote.size() <= 400
+      )) &&
+      data.workspaceNotes is string && data.workspaceNotes.size() <= 15000 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Entity Blueprint: EmailDraftDoc (/drafts/{draftId})
+    function isValidEmailDraft(data) {
+      return isVerifiedUser() &&
+      data is map &&
+      data.keys().hasAll([
+        'ownerId',
+        'to',
+        'subject',
+        'body',
+        'formatType',
+        'updatedAtIso',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId',
+        'to',
+        'subject',
+        'body',
+        'formatType',
+        'updatedAtIso',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.ownerId == request.auth.uid &&
+      data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.to is string && data.to.size() <= 300 &&
+      data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 300 &&
+      data.body is string && data.body.size() >= 1 && data.body.size() <= 15000 &&
+      data.formatType is string && data.formatType.size() >= 1 && data.formatType.size() <= 60 &&
+      data.updatedAtIso is string && data.updatedAtIso.size() >= 10 && data.updatedAtIso.size() <= 40 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Collection 1: Private User Profiles (PII Isolated to Owner Only)
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId && existing().uid == request.auth.uid;
+      allow list: if false;
+
+      allow create: if isValidUserProfile(incoming()) &&
+        isValidId(userId) &&
+        request.auth.uid == userId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isValidUserProfile(incoming()) &&
+        isValidId(userId) &&
+        request.auth.uid == userId &&
+        existing().uid == request.auth.uid &&
+        incoming().uid == existing().uid &&
+        incoming().email == existing().email &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName',
+            'countryCode',
+            'countryName',
+            'timezone',
+            'defaultSummaryPoints',
+            'updatedAt'
+          ])
+        );
+
+      allow delete: if false;
+    }
+
+    // Collection 2: User-Owned Extractions
+    match /extractions/{extractionId} {
+      allow get: if isSignedIn() && isValidId(extractionId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+
+      allow create: if isValidExtraction(incoming()) &&
+        isValidId(extractionId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/users/$(incoming().ownerId));
+
+      allow update: if isValidExtraction(incoming()) &&
+        isValidId(extractionId) &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          // Action 1: UpdateTasks (incl. Kanban status)
+          (incoming().diff(existing()).affectedKeys().hasOnly(['actionItems', 'updatedAt'])) ||
+          // Action 2: UpdateEvents
+          (incoming().diff(existing()).affectedKeys().hasOnly(['calendarEvents', 'updatedAt'])) ||
+          // Action 3: UpdateAttachments
+          (incoming().diff(existing()).affectedKeys().hasOnly(['attachmentsMeta', 'updatedAt'])) ||
+          // Action 4: UpdateSummary
+          (incoming().diff(existing()).affectedKeys().hasOnly(['summaryBullets', 'documentTitle', 'updatedAt'])) ||
+          // Action 5: UpdateWorkspaceNotes
+          (incoming().diff(existing()).affectedKeys().hasOnly(['workspaceNotes', 'updatedAt'])) ||
+          // Action 6: UpdateTranslation (localized summary, tasks, events, rationale, criteria, and outputLanguage)
+          (incoming().diff(existing()).affectedKeys().hasOnly([
+            'documentTitle',
+            'summaryBullets',
+            'actionItems',
+            'calendarEvents',
+            'outputLanguage',
+            'recommendedDisposition',
+            'evaluationRationale',
+            'criteriaBreakdown',
+            'updatedAt'
+          ]))
+        );
+
+      allow delete: if isVerifiedUser() &&
+        isValidId(extractionId) &&
+        existing().ownerId == request.auth.uid;
+    }
+
+    // Collection 3: User-Owned Email Drafts
+    match /drafts/{draftId} {
+      allow get: if isSignedIn() && isValidId(draftId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+
+      allow create: if isValidEmailDraft(incoming()) &&
+        isValidId(draftId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/users/$(incoming().ownerId));
+
+      allow update: if isValidEmailDraft(incoming()) &&
+        isValidId(draftId) &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          // Action: UpdateDraftContent
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'to',
+            'subject',
+            'body',
+            'formatType',
+            'updatedAtIso',
+            'updatedAt'
+          ])
+        );
+
+      allow delete: if isVerifiedUser() &&
+        isValidId(draftId) &&
+        existing().ownerId == request.auth.uid;
+    }
+  }
+}
