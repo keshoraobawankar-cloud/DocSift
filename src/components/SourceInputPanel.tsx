@@ -69,6 +69,7 @@ interface SourceInputPanelProps {
   isExtracting: boolean;
   onExtract: () => void;
   onOpenEmailFormats: () => void;
+  onOpenSummaryModal?: () => void;
   onNotifyToast?: (message: string) => void;
   // Draft Email Composer props
   draftTo: string;
@@ -117,6 +118,7 @@ export const SourceInputPanel: React.FC<SourceInputPanelProps> = ({
   isExtracting,
   onExtract,
   onOpenEmailFormats,
+  onOpenSummaryModal,
   onNotifyToast,
   draftTo,
   onDraftToChange,
@@ -1417,12 +1419,24 @@ export const SourceInputPanel: React.FC<SourceInputPanelProps> = ({
             <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3.5">
               {/* Summary Points Selector (1 to 10) */}
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <label
-                  htmlFor="summary-point-count-select"
-                  className="text-xs font-medium text-slate-700 dark:text-slate-300"
-                >
-                  Summary points
-                </label>
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="summary-point-count-select"
+                    className="text-xs font-medium text-slate-700 dark:text-slate-300"
+                  >
+                    Summary points
+                  </label>
+                  {onOpenSummaryModal && (
+                    <button
+                      type="button"
+                      onClick={onOpenSummaryModal}
+                      className="text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                      title="Customize default summary points"
+                    >
+                      (Edit default)
+                    </button>
+                  )}
+                </div>
                 <div className="flex items-center gap-1.5">
                   {[1, 2, 3, 5, 7, 10].map((preset) => {
                     const isActive = summaryPointCount === preset;

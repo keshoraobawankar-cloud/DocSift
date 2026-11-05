@@ -15,6 +15,7 @@ import {
   FileJson,
   Globe,
   Layers,
+  ListOrdered,
   Loader2,
   LogOut,
   Moon,
@@ -83,6 +84,7 @@ import { AttachmentsView } from "./components/AttachmentsView";
 import { SavedDocsView } from "./components/SavedDocsView";
 import { EmailFormatsModal } from "./components/EmailFormatsModal";
 import { AutomationHubModal } from "./components/AutomationHubModal";
+import { SummaryPointsModal } from "./components/SummaryPointsModal";
 import {
   clearAllAttachmentPayloads,
   deleteAttachmentPayloads,
@@ -626,6 +628,19 @@ export default function App() {
   const [summaryPointCount, setSummaryPointCount] = useState<number>(3);
   const [targetLanguage, setTargetLanguage] = useState<string>("Auto");
 
+  // Guest / Local Workspace Mode (prevents being locked out by domain restrictions)
+  const [isGuestMode, setIsGuestMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("distill_guest_mode") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  // Summary Points Customization Modal (triggered post-login & accessible anytime)
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState<boolean>(false);
+  const [isSummaryInitialPrompt, setIsSummaryInitialPrompt] = useState<boolean>(false);
+
   // Batch Multi-File Processing State
   const [batchMode, setBatchMode] = useState<"separate" | "combined">(
     "separate"
@@ -835,6 +850,13 @@ export default function App() {
           setUserProfile(profile);
           setSelectedCountry(getCountryByCode(profile.countryCode));
           setSummaryPointCount(profile.defaultSummaryPoints);
+
+          // Ask user for their default summary points upon login if not yet chosen
+          const promptedKey = `distill_summary_prompted_${user.uid}`;
+          if (!localStorage.getItem(promptedKey)) {
+            setIsSummaryInitialPrompt(true);
+            setIsSummaryModalOpen(true);
+          }
         })
         .catch((err) => {
           setSyncWarning(parseFirestoreErrorMessage(err));
@@ -920,18 +942,51 @@ export default function App() {
   // Persist optimistic local updates to browser localStorage cache
   const persistLocalCache = useCallback(
     (nextRecords: ExtractionRecord[]) => {
-      if (!currentUser) return;
+      const targetUid =
+        currentUser?.uid || (isGuestMode ? "local_guest_workspace" : null);
+      if (!targetUid) return;
       try {
         localStorage.setItem(
-          getLocalRecordsCacheKey(currentUser.uid),
+          getLocalRecordsCacheKey(targetUid),
           JSON.stringify(stripLargeAttachmentPayloads(nextRecords))
         );
       } catch {
         // Ignore storage quota errors
       }
     },
-    [currentUser]
+    [currentUser, isGuestMode]
   );
+
+  // Initialize guest workspace profile and load guest cache if in guest mode
+  useEffect(() => {
+    if (!currentUser && isGuestMode) {
+      try {
+        const cachedRaw = localStorage.getItem(
+          getLocalRecordsCacheKey("local_guest_workspace")
+        );
+        if (cachedRaw) {
+          const parsed = JSON.parse(cachedRaw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const cachedRecords = parsed as ExtractionRecord[];
+            setRecords(cachedRecords);
+            setActiveRecordId((prev) => prev ?? (cachedRecords[0]?.id || null));
+          }
+        }
+      } catch {}
+
+      if (!userProfile) {
+        setUserProfile({
+          uid: "local_guest_workspace",
+          displayName: "Guest User",
+          email: "guest@distill.local",
+          countryCode: selectedCountry.code,
+          countryName: selectedCountry.name,
+          timezone: selectedCountry.timezone,
+          defaultSummaryPoints: summaryPointCount,
+        });
+      }
+    }
+  }, [currentUser, isGuestMode, userProfile, selectedCountry, summaryPointCount]);
 
   const openRecordInWorkspace = useCallback(
     (
@@ -1187,6 +1242,10 @@ export default function App() {
 
   const handleAuthenticateWithGoogle = async () => {
     const user = await signInWithGooglePopup();
+    setIsGuestMode(false);
+    try {
+      localStorage.removeItem("distill_guest_mode");
+    } catch {}
     const profile = await ensureUserProfile(
       user,
       selectedCountry,
@@ -1196,11 +1255,27 @@ export default function App() {
     setSelectedCountry(getCountryByCode(profile.countryCode));
     setSummaryPointCount(profile.defaultSummaryPoints);
     notifyToast(`Signed in as ${profile.displayName}`);
+
+    // Ask user for their default summary points upon login
+    const promptedKey = `distill_summary_prompted_${user.uid}`;
+    if (!localStorage.getItem(promptedKey)) {
+      setIsSummaryInitialPrompt(true);
+      setIsSummaryModalOpen(true);
+    }
   };
 
   const handleSignOut = async () => {
-    await signOutCurrentUser();
-    notifyToast("Signed out");
+    if (currentUser) {
+      await signOutCurrentUser();
+    }
+    setIsGuestMode(false);
+    try {
+      localStorage.removeItem("distill_guest_mode");
+    } catch {}
+    setUserProfile(null);
+    setRecords([]);
+    setActiveRecordId(null);
+    notifyToast("Signed out of workspace");
   };
 
   const handleCountryChange = (countryCode: string) => {
@@ -1217,11 +1292,34 @@ export default function App() {
   const handleSummaryPointsChange = (points: number) => {
     const clamped = Math.min(10, Math.max(1, Math.round(points)));
     setSummaryPointCount(clamped);
+    if (userProfile) {
+      setUserProfile((prev) =>
+        prev ? { ...prev, defaultSummaryPoints: clamped } : null
+      );
+    }
     if (currentUser) {
       void updateUserPreferences(currentUser.uid, {
         defaultSummaryPoints: clamped,
       }).catch((err) => setSyncWarning(parseFirestoreErrorMessage(err)));
     }
+  };
+
+  const handleSaveDefaultSummaryPoints = (points: number) => {
+    const clamped = Math.min(10, Math.max(1, Math.round(points)));
+    handleSummaryPointsChange(clamped);
+    const targetUid = currentUser?.uid || "guest";
+    try {
+      localStorage.setItem(`distill_summary_prompted_${targetUid}`, "true");
+    } catch {}
+    notifyToast(`Default summary updated to ${clamped} ${clamped === 1 ? "point" : "points"}`);
+  };
+
+  const handleCloseSummaryModal = () => {
+    setIsSummaryModalOpen(false);
+    const targetUid = currentUser?.uid || "guest";
+    try {
+      localStorage.setItem(`distill_summary_prompted_${targetUid}`, "true");
+    } catch {}
   };
 
   const handleToggleEvaluationBasis = (basisId: string) => {
@@ -1686,7 +1784,6 @@ export default function App() {
   };
 
   const handleSaveDraft = async () => {
-    if (!currentUser) return;
     if (!draftSubject.trim() && !draftBody.trim()) {
       setExtractError("Add a subject or message body before saving a draft.");
       return;
@@ -1694,6 +1791,30 @@ export default function App() {
 
     setIsSavingDraft(true);
     try {
+      if (!currentUser) {
+        const guestDraft: EmailDraftRecord = {
+          id: activeDraftId || `guest-draft-${Date.now()}`,
+          ownerId: "local_guest_workspace",
+          to: draftTo,
+          subject: draftSubject || "Untitled Draft",
+          body: draftBody || " ",
+          formatType: draftFormatStyle,
+          updatedAtIso: new Date().toISOString(),
+        };
+        setSavedDrafts((prev) => {
+          const idx = prev.findIndex((d) => d.id === guestDraft.id);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = guestDraft;
+            return next;
+          }
+          return [guestDraft, ...prev];
+        });
+        setActiveDraftId(guestDraft.id);
+        notifyToast("Email draft saved locally");
+        return;
+      }
+
       const isExisting = Boolean(
         activeDraftId && savedDrafts.some((d) => d.id === activeDraftId)
       );
@@ -1731,9 +1852,14 @@ export default function App() {
     if (activeDraftId === draftId) {
       handleNewDraft();
     }
-    void deleteFirestoreDraft(draftId)
-      .then(() => notifyToast("Draft deleted"))
-      .catch((err) => setSyncWarning(parseFirestoreErrorMessage(err)));
+    if (currentUser) {
+      void deleteFirestoreDraft(draftId)
+        .then(() => notifyToast("Draft deleted"))
+        .catch((err) => setSyncWarning(parseFirestoreErrorMessage(err)));
+    } else {
+      setSavedDrafts((prev) => prev.filter((d) => d.id !== draftId));
+      notifyToast("Draft deleted");
+    }
   };
 
   const handleDraftReply = (record: ExtractionRecord) => {
